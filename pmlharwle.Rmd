@@ -1,0 +1,50 @@
+---
+title: "Human Activity Recognition Weight Lifting Exercise Classification Learning Algorithm"
+output: html_document
+---
+
+In this report I describe the development of machine learning algorithm that predicts, how a person wearing body sensors performs weight lifting exercise with a dumb-bell: correctly or incorrectly (in four different ways). The prediction is based on a dataset of sensor readouts from persons doing the exercise under observation. I will user R "caret" package.
+
+Let's start from loading the dataset and the package:
+```{r}
+library(caret)
+df<-read.csv('pml-training.csv',stringsAsFactors=FALSE)
+```
+Since the dataset csv file contains all the numbers in quotation marks I had to use the stringAsFactors=FALSE, so that they are read in as numbers.
+
+The first seven columns include things like name of the subject, and temporal variables, and can not be relevant to exercise performance prediction:
+
+```{r}
+str(df[,1:7])
+```
+
+Among the other variables there are such that show "NA" for most of the observations (my guess is they are only for a new time window and inferred from other observations in the same time window by averaging or taking variance, it does not matter for our purpose here). I assume that it is possible to predctthe type of activity from a single record in the dataset, that is, from readouts of the sensors at a given point in time (as opposed to analyzing time-evolution of readouts). In any case, I am only looking for machine learning algorithm that will do that. Therefore, I omit all these variables in addition to the first seven, and get the following list of 52 predictors (the last one, 160, is actually "classe", the value we are predicting):
+
+```{r}
+predictors<-c(seq(8,11),seq(37,49),seq(60,68),seq(84,86),102,seq(113,124),140,seq(151,160))
+df<-df[predictors]
+df$classe<-factor(df$classe)
+```
+
+There are `r dim(df)[1]` observations, which seems to be a large enough number to have enough data for training and validation. From histogramming some of the predictors (graphs not shown), there seems to be enough of variability in the set. Hence, I go with the standard approach of 60/40 in creating training and testing data sets
+
+```{r}
+inTrain<-createDataPartition(y=df$classe,p=0.6,list=FALSE)
+training<-df[inTrain,]
+testing<-df[-inTrain,]
+```
+
+The problem is a clafficication problem, so we could use logistic regression ('glm'), support vector machine or decision trees. I choose decision trees with bagging in the flavour of random forest, it being the fastest among the tree:
+
+```{r, cache=TRUE}
+modFit<-train(classe ~ ., data=training, method="rf")
+```
+
+To estimate errors of prediction we use the testing set and look at confusion matrix:
+```{r}
+p<-predict(modFit,testing)
+print(confusionMatrix(p,testing$classe))
+```
+
+The performance of the method seems acceptable. Of course, there is always a possibility of overfitting, but some of it should have been taken care of in the random forest bagging procedure.
+Applying the algorithm to the 20 test cases given in the assigment we find 100% correct prediction.
